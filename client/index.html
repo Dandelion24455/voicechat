@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoiceChat</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, sans-serif; background: #1a1a2e; color: #e0e0e0; min-height: 100vh; display: flex; }
+#app { max-width: 440px; margin: auto; padding: 24px; width: 100%; }
+h1 { text-align: center; margin-bottom: 16px; color: #00d4ff; font-size: 1.4rem; }
+h3 { margin-bottom: 12px; }
+.card { background: #16213e; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+input, button { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #0f3460; margin-bottom: 8px; font-size: 14px; }
+input { background: #0f3460; color: #e0e0e0; }
+button { background: #e94560; color: #fff; border: none; cursor: pointer; font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary { background: #0f3460; }
+button.danger { background: #c0392b; }
+button.small { width: auto; padding: 6px 10px; font-size: 12px; }
+.hint { font-size: 12px; color: #8899aa; margin-bottom: 8px; }
+.player-badge { display: inline-block; background: #e94560; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+.room-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #0f3460; border-radius: 8px; margin-bottom: 8px; gap: 8px; }
+.room-item .info { flex: 1; min-width: 0; }
+.room-item .name { font-weight: 600; }
+.room-item .code { font-size: 11px; color: #00d4ff; margin-top: 2px; }
+.room-item .actions { display: flex; gap: 4px; flex-shrink: 0; }
+.room-item .actions button { margin-bottom: 0; }
+.member-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.member { padding: 6px 12px; background: #0f3460; border-radius: 16px; font-size: 13px; }
+.member.speaking { background: #27ae60; }
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.status-dot.connected { background: #27ae60; }
+.status-dot.connecting { background: #f39c12; animation: blink 0.5s infinite alternate; }
+.status-dot.disconnected { background: #e94560; }
+@keyframes blink { to { opacity: 0.3; } }
+#error-log { background: #1a0a0a; color: #ff6b6b; padding: 8px 12px; border-radius: 8px; margin-top: 8px; font-size: 12px; display: none; white-space: pre-wrap; max-height: 150px; overflow-y: auto; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row input { flex: 1; margin-bottom: 0; }
+.row button { width: auto; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>VoiceChat</h1>
+
+  <div id="auth-card" class="card">
+    <h3>Welcome</h3>
+    <input id="username" placeholder="Username (2-32 chars)" autocomplete="off">
+    <input id="password" type="password" placeholder="Password (6-128 chars)">
+    <div class="hint">At least 6 characters for password</div>
+    <button id="btn-login">Login</button>
+    <button id="btn-register" class="secondary">Register</button>
+    <div id="auth-msg" style="color:#e94560;font-size:13px;margin-top:6px"></div>
+  </div>
+
+  <div id="welcome-card" class="card" style="display:none">
+    <h3>Registration Successful</h3>
+    <p style="margin-bottom:12px">Your player ID is:</p>
+    <div style="text-align:center;font-size:32px;font-weight:800;letter-spacing:6px;color:#00d4ff;margin:16px 0" id="welcome-pid"></div>
+    <p class="hint">Share this 4-character code to invite friends to your rooms.</p>
+    <button id="btn-got-it">Got it — enter lobby</button>
+  </div>
+
+  <div id="lobby-card" class="card" style="display:none">
+    <div class="row" style="margin-bottom:12px">
+      <span class="player-badge" id="my-pid"></span>
+      <button id="btn-logout" class="secondary small" style="margin-left:auto">Logout</button>
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <input id="room-name" placeholder="New room name">
+      <button id="btn-create" style="width:auto">+ Create</button>
+    </div>
+    <div class="row" style="margin-bottom:16px">
+      <input id="invite-code" placeholder="Enter 4-char invite code" maxlength="4" style="text-transform:uppercase">
+      <button id="btn-join-code" class="secondary" style="width:auto">Join</button>
+    </div>
+    <div id="room-list"><div class="hint" style="text-align:center">No rooms yet. Create one!</div></div>
+  </div>
+
+  <div id="room-info" class="card" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 id="current-room-name">Room</h3>
+      <span class="status-dot disconnected" id="status-dot"></span>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <label style="font-size:12px;color:#8899aa;white-space:nowrap">Vol</label>
+      <input type="range" id="volume-slider" min="0" max="150" value="100" style="margin-bottom:0;padding:0;height:6px;accent-color:#e94560">
+      <span id="volume-label" style="font-size:12px;width:32px;text-align:right">100%</span>
+    </div>
+    <div class="member-list" id="member-list"></div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button id="btn-mic" class="secondary">Mute</button>
+      <button id="btn-leave" class="danger">Leave Room</button>
+    </div>
+  </div>
+
+  <div id="error-log"></div>
+</div>
+
+<script type="module">
+import { Room, RoomEvent, ConnectionState } from 'https://cdn.jsdelivr.net/npm/livekit-client@2.9.0/+esm';
+
+const SERVER = window.__TAURI__ ? 'http://dandelions.fun:8080' : '';
+const API = SERVER + '/api';
+const $ = id => document.getElementById(id);
+let token = localStorage.getItem('token');
+let playerID = localStorage.getItem('player_id');
+let livekitRoom = null;
+let audioTrack = null;
+let micMuted = false;
+let reconnectTimer = null;
+let reconnectDelay = 1000;
+let reconnectCount = 0;
+const MAX_RECONNECT_DELAY = 30000;
+const MAX_RECONNECT_COUNT = 20;
+let currentRoomID = null;
+
+function log(msg) {
+  const el = $('error-log');
+  el.style.display = 'block';
+  el.textContent += '[' + new Date().toLocaleTimeString() + '] ' + msg + '\n';
+  el.scrollTop = el.scrollHeight;
+  console.log(msg);
+}
+
+function clearLog() { $('error-log').textContent = ''; $('error-log').style.display = 'none'; }
+
+async function authFetch(url, opts = {}) {
+  opts.headers = { ...opts.headers, 'Authorization': 'Bearer ' + token };
+  const res = await fetch(url, opts);
+  if (res.status === 401) { logout(); }
+  return res;
+}
+
+function show(el) { el.style.display = 'block'; }
+function hide(el) { el.style.display = 'none'; }
+
+function showLogin() {
+  show($('auth-card'));
+  hide($('welcome-card'));
+  hide($('lobby-card'));
+  hide($('room-info'));
+}
+
+function showWelcome(pid) {
+  hide($('auth-card'));
+  show($('welcome-card'));
+  hide($('lobby-card'));
+  hide($('room-info'));
+  $('welcome-pid').textContent = pid;
+}
+
+function showLobby() {
+  hide($('auth-card'));
+  hide($('welcome-card'));
+  show($('lobby-card'));
+  hide($('room-info'));
+  $('my-pid').textContent = 'ID: ' + (playerID || '----');
+  loadRooms();
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('player_id');
+  token = null;
+  playerID = null;
+  showLogin();
+}
+
+async function loadRooms() {
+  try {
+    const res = await authFetch(API + '/rooms');
+    const rooms = await res.json();
+    if (!res.ok) return;
+    if (!Array.isArray(rooms)) return;
+
+    const list = $('room-list');
+    if (rooms.length === 0) {
+      list.innerHTML = '<div class="hint" style="text-align:center">No rooms yet. Create one!</div>';
+      return;
+    }
+    list.innerHTML = '';
+    rooms.forEach(r => {
+      const div = document.createElement('div');
+      div.className = 'room-item';
+      div.innerHTML = `
+        <div class="info">
+          <div class="name">${esc(r.name)}</div>
+          <div class="code">Code: <b>${esc(r.invite_code)}</b></div>
+        </div>
+        <div class="actions">
+          <button class="small" data-action="join" data-id="${r.id}">Join</button>
+          <button class="small danger" data-action="del" data-id="${r.id}">Del</button>
+        </div>`;
+      list.appendChild(div);
+    });
+
+    list.querySelectorAll('[data-action="join"]').forEach(b =>
+      b.addEventListener('click', () => joinRoom(b.dataset.id)));
+    list.querySelectorAll('[data-action="del"]').forEach(b =>
+      b.addEventListener('click', async () => {
+        if (!confirm('Delete this room?')) return;
+        await authFetch(API + '/rooms/' + b.dataset.id, { method: 'DELETE' });
+        loadRooms();
+      }));
+  } catch(e) { log('loadRooms: ' + e.message); }
+}
+
+async function register() {
+  const username = $('username').value.trim();
+  const password = $('password').value;
+  if (!username || !password) return setMsg('Fill all fields');
+  if (password.length < 6) return setMsg('Password must be at least 6 characters.');
+  try {
+    const res = await fetch(API + '/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      token = data.token;
+      playerID = data.player_id;
+      localStorage.setItem('token', token);
+      localStorage.setItem('player_id', playerID);
+      showWelcome(playerID);
+    } else {
+      setMsg(data.error || 'Registration failed');
+    }
+  } catch(e) { log('register: ' + e.message); }
+}
+
+async function login() {
+  const username = $('username').value.trim();
+  const password = $('password').value;
+  if (!username || !password) return setMsg('Fill all fields');
+  try {
+    const res = await fetch(API + '/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      token = data.token;
+      playerID = data.user?.player_id || playerID;
+      localStorage.setItem('token', token);
+      localStorage.setItem('player_id', playerID);
+      showLobby();
+      clearLog();
+    } else {
+      setMsg(data.error || 'Login failed');
+    }
+  } catch(e) { log('login: ' + e.message); }
+}
+
+function setMsg(text) { $('auth-msg').textContent = text; }
+
+async function createRoom() {
+  const name = $('room-name').value.trim();
+  if (!name) return;
+  await authFetch(API + '/rooms', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+  $('room-name').value = '';
+  loadRooms();
+}
+
+async function joinByCode() {
+  const code = $('invite-code').value.trim();
+  if (code.length !== 4) return setMsg('Invite code must be exactly 4 characters.');
+  const res = await authFetch(API + '/rooms/join-by-code', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code })
+  });
+  const data = await res.json();
+  if (!res.ok) { log('join by code: ' + data.error); return; }
+  joinRoom(data.room.id);
+}
+
+async function joinRoom(id) {
+  clearLog();
+  currentRoomID = id;
+  log('Connecting to room...');
+  try {
+    const res = await authFetch(API + '/rooms/' + id + '/token');
+    const data = await res.json();
+    if (!res.ok) { log('token error: ' + data.error); return; }
+    log('Got token, connecting LiveKit...');
+
+    await connectLiveKit(data);
+    log('Ready!');
+
+    const wsBase = SERVER || (location.protocol + '//' + location.host);
+    const wsProto = wsBase.startsWith('https') ? 'wss:' : 'ws:';
+    const wsHost = wsBase.replace(/^https?:\/\//, '');
+    const wsUrl = wsProto + '//' + wsHost + API + '/ws/room/' + data.room + '?token=' + token;
+    const ws = new WebSocket(wsUrl);
+    ws.onmessage = e => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'members') renderMembers(msg.members);
+    };
+
+    hide($('lobby-card'));
+    show($('room-info'));
+    updateMembers();
+
+  } catch(e) { log('joinRoom: ' + e.message); }
+}
+
+async function connectLiveKit(data) {
+  if (livekitRoom) {
+    livekitRoom.off(RoomEvent.Disconnected, onDisconnected);
+    livekitRoom.off(RoomEvent.ConnectionStateChanged, onConnState);
+    try { livekitRoom.disconnect(); } catch(e) {}
+    livekitRoom = null;
+  }
+
+  livekitRoom = new Room({
+    adaptiveStream: false,
+    dynacast: false
+  });
+
+  livekitRoom.on(RoomEvent.ConnectionStateChanged, onConnState);
+  livekitRoom.on(RoomEvent.TrackSubscribed, onTrackSub);
+  livekitRoom.on(RoomEvent.TrackUnsubscribed, onTrackUnsub);
+  livekitRoom.on(RoomEvent.ParticipantConnected, () => updateMembers());
+  livekitRoom.on(RoomEvent.ParticipantDisconnected, () => updateMembers());
+  livekitRoom.on(RoomEvent.LocalTrackPublished, () => updateMembers());
+  livekitRoom.on(RoomEvent.Disconnected, onDisconnected);
+
+  await livekitRoom.connect(data.livekit_url, data.livekit_token);
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      sampleRate: 48000, channelCount: 1,
+      echoCancellation: false, noiseSuppression: false,
+      autoGainControl: false, latency: 0.01
+    }
+  });
+  const mediaTrack = stream.getAudioTracks()[0];
+  audioTrack = mediaTrack;
+  await livekitRoom.localParticipant.publishTrack(mediaTrack, {
+    source: 'microphone', dtx: false, red: true, audioBitrate: 64000
+  });
+}
+
+function onConnState(state) {
+  log('LiveKit: ' + state);
+  const dot = $('status-dot');
+  if (state === ConnectionState.Connected) {
+    dot.className = 'status-dot connected';
+    reconnectDelay = 1000;
+    reconnectCount = 0;
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  } else if (state === ConnectionState.Reconnecting) {
+    dot.className = 'status-dot connecting';
+  } else if (state === ConnectionState.Disconnected) {
+    dot.className = 'status-dot disconnected';
+  }
+}
+
+function onDisconnected() {
+  if (reconnectCount >= MAX_RECONNECT_COUNT) {
+    log('Max reconnect attempts reached');
+    $('status-dot').className = 'status-dot disconnected';
+    return;
+  }
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+
+  reconnectCount++;
+  const delay = Math.min(reconnectDelay, MAX_RECONNECT_DELAY);
+  log('LiveKit disconnected — retry #' + reconnectCount + ' in ' + (delay/1000) + 's');
+  $('status-dot').className = 'status-dot connecting';
+
+  reconnectTimer = setTimeout(async () => {
+    if (!currentRoomID) return;
+    log('Reconnecting...');
+    try {
+      const res = await authFetch(API + '/rooms/' + currentRoomID + '/token');
+      const data = await res.json();
+      if (res.ok && data.livekit_token) {
+        await connectLiveKit(data);
+        log('Reconnected!');
+      }
+    } catch(e) { log('Reconnect failed: ' + e.message); }
+  }, delay);
+
+  reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+}
+
+function onTrackSub(track) {
+  if (track.kind === 'audio') {
+    const el = track.attach();
+    el.id = 'audio-' + track.sid;
+    el.volume = ($('volume-slider').value || 100) / 100;
+    document.body.appendChild(el);
+  }
+}
+
+function onTrackUnsub(track) {
+  const el = document.getElementById('audio-' + track.sid);
+  if (el) el.remove();
+}
+
+function toggleMic() {
+  micMuted = !micMuted;
+  if (audioTrack) audioTrack.enabled = !micMuted;
+  $('btn-mic').textContent = micMuted ? 'Unmute' : 'Mute';
+}
+
+function leaveRoom() {
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  reconnectDelay = 1000;
+  reconnectCount = 0;
+  currentRoomID = null;
+  if (livekitRoom) { livekitRoom.disconnect(); livekitRoom = null; }
+  audioTrack = null;
+  hide($('room-info'));
+  show($('lobby-card'));
+  document.querySelectorAll('audio[id^="audio-"]').forEach(el => el.remove());
+  loadRooms();
+}
+
+function updateMembers() {
+  if (!livekitRoom) return;
+  const members = [];
+  livekitRoom.remoteParticipants.forEach(p =>
+    members.push({ user_id: p.identity, username: p.name, player_id: '' }));
+  members.push({ user_id: livekitRoom.localParticipant.identity, username: livekitRoom.localParticipant.name, player_id: playerID || '' });
+  renderMembers(members);
+}
+
+function renderMembers(members) {
+  $('member-list').innerHTML = members.map(m =>
+    '<span class="member">' + esc(m.username) + ' <span style="color:#00d4ff;font-size:11px">#' + esc(m.player_id || '----') + '</span></span>'
+  ).join('');
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function setVolume(v) {
+  $('volume-label').textContent = v + '%';
+  document.querySelectorAll('audio[id^="audio-"]').forEach(el => {
+    el.volume = v / 100;
+  });
+}
+
+// Event bindings
+$('btn-login').addEventListener('click', login);
+$('btn-register').addEventListener('click', register);
+$('btn-got-it').addEventListener('click', showLobby);
+$('btn-create').addEventListener('click', createRoom);
+$('btn-join-code').addEventListener('click', joinByCode);
+$('btn-mic').addEventListener('click', toggleMic);
+$('btn-leave').addEventListener('click', leaveRoom);
+$('btn-logout').addEventListener('click', logout);
+$('password').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+$('invite-code').addEventListener('keydown', e => { if (e.key === 'Enter') joinByCode(); });
+$('volume-slider').addEventListener('input', e => setVolume(e.target.value));
+
+log('Loaded.');
+if (token) showLobby();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+/Users/Zhuanz/Projects/voicechat/client-desktop/src-tauri/target/release/deps/serde-6eed486ea4618846.d: /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/Zhuanz/Projects/voicechat/client-desktop/src-tauri/target/release/build/serde-7d75a0073ad100f0/out/private.rs
+
+/Users/Zhuanz/Projects/voicechat/client-desktop/src-tauri/target/release/deps/libserde-6eed486ea4618846.rlib: /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/Zhuanz/Projects/voicechat/client-desktop/src-tauri/target/release/build/serde-7d75a0073ad100f0/out/private.rs
+
+/Users/Zhuanz/Projects/voicechat/client-desktop/src-tauri/target/release/deps/libserde-6eed486ea4618846.rmeta: /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/Zhuanz/Projects/voicechat/client-desktop/src-tauri/target/release/build/serde-7d75a0073ad100f0/out/private.rs
+
+/Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/Zhuanz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/Zhuanz/Projects/voicechat/client-desktop/src-tauri/target/release/build/serde-7d75a0073ad100f0/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/Zhuanz/Projects/voicechat/client-desktop/src-tauri/target/release/build/serde-7d75a0073ad100f0/out

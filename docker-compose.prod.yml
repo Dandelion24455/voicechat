@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_DB: voicechat
+      POSTGRES_USER: voicechat
+      POSTGRES_PASSWORD: ${DB_PASS:-voicechat}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voicechat"]
+      interval: 5s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    network_mode: host
+    volumes:
+      - certs:/data/certs
+    environment:
+      PORT: "8080"
+      DOMAIN: ${DOMAIN}
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_USER: voicechat
+      DB_PASS: ${DB_PASS:-voicechat}
+      DB_NAME: voicechat
+      REDIS_ADDR: 127.0.0.1:6379
+      JWT_SECRET: ${JWT_SECRET}
+      LIVEKIT_URL: ${LIVEKIT_URL}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  certs:
