@@ -6,7 +6,7 @@ set -e
 
 echo "=== Building tarball ==="
 cd "$(dirname "$0")"
-tar czf /tmp/voicechat-deploy.tar.gz server/ client/ docker-compose.prod.yml .gitignore
+tar czf /tmp/voicechat-deploy.tar.gz server/ client/ mediasoup-server/ docker-compose.prod.yml .gitignore
 
 echo "=== Uploading to server ==="
 scp /tmp/voicechat-deploy.tar.gz ubuntu@212.64.28.112:/tmp/

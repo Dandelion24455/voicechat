@@ -32,7 +32,7 @@ func main() {
 
 	authH := &handler.AuthHandler{DB: db, Cfg: cfg}
 	roomH := &handler.RoomHandler{DB: db, Cfg: cfg}
-	lkH := &handler.LiveKitHandler{Cfg: cfg}
+	msH := &handler.MediasoupHandler{Cfg: cfg}
 
 	hub := ws.NewHub(rdb)
 
@@ -52,7 +52,7 @@ func main() {
 			auth.DELETE("/rooms/:id", roomH.Delete)
 			auth.POST("/rooms/:id/join", roomH.Join)
 			auth.POST("/rooms/join-by-code", roomH.JoinByCode)
-			auth.GET("/rooms/:id/token", lkH.GetToken)
+			auth.GET("/rooms/:id/token", msH.GetConnectionInfo)
 			auth.GET("/ws/room/:id", func(c *gin.Context) {
 				hub.Handle(c)
 			})

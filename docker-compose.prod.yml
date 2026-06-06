@@ -23,6 +23,22 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
 
+  mediasoup:
+    build:
+      context: .
+      dockerfile: mediasoup-server/Dockerfile
+    network_mode: host
+    environment:
+      PORT: "3000"
+      JWT_SECRET: ${JWT_SECRET}
+      ANNOUNCED_IP: ${ANNOUNCED_IP:-212.64.28.112}
+      RTC_MIN_PORT: "40000"
+      RTC_MAX_PORT: "49999"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   server:
     build:
       context: .
@@ -40,9 +56,8 @@ services:
       DB_NAME: voicechat
       REDIS_ADDR: 127.0.0.1:6379
       JWT_SECRET: ${JWT_SECRET}
-      LIVEKIT_URL: ${LIVEKIT_URL}
-      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
-      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      MEDIASOUP_WS_HOST: ${MEDIASOUP_WS_HOST:-dandelions.fun}
+      MEDIASOUP_WS_PORT: "3000"
     depends_on:
       postgres:
         condition: service_healthy
