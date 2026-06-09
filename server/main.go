@@ -53,6 +53,7 @@ func main() {
 			auth.POST("/rooms/:id/join", roomH.Join)
 			auth.POST("/rooms/join-by-code", roomH.JoinByCode)
 			auth.GET("/rooms/:id/token", msH.GetConnectionInfo)
+			auth.GET("/mediasoup/:id", msH.ProxyMediasoupWS)
 			auth.GET("/ws/room/:id", func(c *gin.Context) {
 				hub.Handle(c)
 			})
@@ -60,7 +61,6 @@ func main() {
 	}
 
 	if cfg.Domain != "" {
-		// Also serve HTTP on 8080 as fallback for users without HTTPS access
 		go func() {
 			log.Printf("HTTP fallback on :%s", cfg.Port)
 			if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {

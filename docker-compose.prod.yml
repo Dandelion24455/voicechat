@@ -56,7 +56,7 @@ services:
       DB_NAME: voicechat
       REDIS_ADDR: 127.0.0.1:6379
       JWT_SECRET: ${JWT_SECRET}
-      MEDIASOUP_WS_HOST: ${MEDIASOUP_WS_HOST:-dandelions.fun}
+      MEDIASOUP_WS_HOST: ${MEDIASOUP_WS_HOST:-127.0.0.1}
       MEDIASOUP_WS_PORT: "3000"
     depends_on:
       postgres:

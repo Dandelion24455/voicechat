@@ -288,19 +288,16 @@ async function joinRoom(id) {
 }
 
 function connectMediasoup(info) {
-  return new Promise((resolve, reject) => {
-    cleanupMedia();
+	  return new Promise((resolve, reject) => {
+	    cleanupMedia();
 
-    // Build WebSocket URL to mediasoup signaling server
-    // For unencrypted WS, we need to construct the URL carefully
-    const tokenParam = encodeURIComponent(info.token);
-    const roomParam = encodeURIComponent(info.room);
-    // info.mediasoup_ws_url is like "ws://host:port"
-    // For browser served from HTTPS, we need wss:// - but for HTTP we use ws://
-    // Use the configured URL directly
-    const wsFullUrl = info.mediasoup_ws_url + '?token=' + tokenParam + '&roomId=' + roomParam;
-    log('Connecting MS WS...');
-    msWs = new WebSocket(wsFullUrl);
+	    const tokenParam = encodeURIComponent(info.token);
+	    const wsBase = SERVER || (location.protocol + '//' + location.host);
+	    const wsProto = wsBase.startsWith('https') ? 'wss:' : 'ws:';
+	    const wsHost = wsBase.replace(/^https?:\/\//, '');
+	    const wsFullUrl = wsProto + '//' + wsHost + API + '/mediasoup/' + info.room + '?token=' + tokenParam;
+	    log('Connecting MS WS via proxy...');
+	    msWs = new WebSocket(wsFullUrl);
 
     const timeout = setTimeout(() => {
       reject(new Error('Mediasoup connection timeout'));
@@ -446,18 +443,25 @@ function setupTransportHandlers(transport, label) {
 }
 
 async function startProducing() {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      sampleRate: 48000, channelCount: 1,
-      echoCancellation: false, noiseSuppression: false,
-      autoGainControl: false, latency: 0.01
-    }
-  });
-  micTrack = stream.getAudioTracks()[0];
-  await producerTransport.produce({
-    track: micTrack,
-    codecOptions: { opusStereo: false, opusDtx: false, opusFec: true, opusMaxPlaybackRate: 48000 },
-  });
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        sampleRate: 48000, channelCount: 1,
+        echoCancellation: false, noiseSuppression: false,
+        autoGainControl: false, latency: 0.01
+      }
+    });
+    micTrack = stream.getAudioTracks()[0];
+    await producerTransport.produce({
+      track: micTrack,
+      codecOptions: { opusStereo: false, opusDtx: false, opusFec: true, opusMaxPlaybackRate: 48000 },
+    });
+  } catch(e) {
+    log('Microphone error: ' + e.message);
+    log('Hint: use localhost:8080 or the desktop client for mic access (HTTPS required)');
+    $('status-dot').className = 'status-dot disconnected';
+    throw e;
+  }
 }
 
 async function consumeRemoteProducer(msg) {

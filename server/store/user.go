@@ -39,6 +39,14 @@ func (db *DB) GetUserByID(ctx context.Context, id string) (*model.User, error) {
 	return u, err
 }
 
+func (db *DB) UpdatePlayerID(ctx context.Context, userID, playerID string) error {
+	_, err := db.Pool.Exec(ctx,
+		"UPDATE users SET player_id=$1 WHERE id=$2 AND player_id IS NULL",
+		playerID, userID,
+	)
+	return err
+}
+
 func (db *DB) IsPlayerIDTaken(ctx context.Context, playerID string) (bool, error) {
 	var exists bool
 	err := db.Pool.QueryRow(ctx,

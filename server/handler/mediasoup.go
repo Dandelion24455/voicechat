@@ -27,7 +27,16 @@ func (h *MediasoupHandler) GetConnectionInfo(c *gin.Context) {
 
 	wsHost := h.Cfg.MediasoupWSHost
 	wsPort := h.Cfg.MediasoupWSPort
-	wsURL := fmt.Sprintf("ws://%s:%s", wsHost, wsPort)
+	proto := "ws"
+	if h.Cfg.MediasoupWSSecure {
+		proto = "wss"
+	}
+	var wsURL string
+	if wsPort == "443" && h.Cfg.MediasoupWSSecure {
+		wsURL = fmt.Sprintf("%s://%s", proto, wsHost)
+	} else {
+		wsURL = fmt.Sprintf("%s://%s:%s", proto, wsHost, wsPort)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"room":             roomID,

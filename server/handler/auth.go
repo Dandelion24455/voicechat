@@ -111,6 +111,22 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// Backfill player_id for users created before the column was added
+	if user.PlayerID == "" {
+		user.PlayerID = generatePlayerID()
+		for {
+			taken, _ := h.DB.IsPlayerIDTaken(c.Request.Context(), user.PlayerID)
+			if !taken {
+				break
+			}
+			user.PlayerID = generatePlayerID()
+		}
+		if err := h.DB.UpdatePlayerID(c.Request.Context(), user.ID, user.PlayerID); err != nil {
+			log.Printf("backfill player_id for user %s failed: %v", user.ID, err)
+			// Don't block login — user still gets in, just without player_id
+		}
+	}
+
 	token, _ := h.generateToken(user)
 	c.JSON(http.StatusOK, gin.H{"token": token, "user": user})
 }
