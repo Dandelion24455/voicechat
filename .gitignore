@@ -1,3 +1,5 @@
 .env
 *.log
 /tmp/
+**/.DS_Store
+/client-desktop/src-tauri/target/

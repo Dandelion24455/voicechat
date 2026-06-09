@@ -8,18 +8,21 @@ import (
 	"strings"
 	"time"
 	"voicechat-server/config"
+	"voicechat-server/middleware"
 	"voicechat-server/model"
 	"voicechat-server/store"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler struct {
 	DB  *store.DB
 	Cfg *config.Config
+	Rdb *redis.Client
 }
 
 const playerIDChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -32,7 +35,6 @@ func generatePlayerID() string {
 			b[i] = playerIDChars[n.Int64()]
 		}
 		id := string(b)
-		// Validate: no ambiguous chars (O/0, I/1), not all same
 		if strings.ContainsAny(id, "OI") {
 			continue
 		}
@@ -123,7 +125,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		}
 		if err := h.DB.UpdatePlayerID(c.Request.Context(), user.ID, user.PlayerID); err != nil {
 			log.Printf("backfill player_id for user %s failed: %v", user.ID, err)
-			// Don't block login — user still gets in, just without player_id
 		}
 	}
 
@@ -131,12 +132,20 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"token": token, "user": user})
 }
 
+func (h *AuthHandler) Logout(c *gin.Context) {
+	tokenStr := c.GetString("token_str")
+	if tokenStr != "" && h.Rdb != nil {
+		middleware.BlacklistToken(c.Request.Context(), h.Rdb, tokenStr)
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 func (h *AuthHandler) generateToken(user *model.User) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id":   user.ID,
 		"player_id": user.PlayerID,
 		"username":  user.Username,
-		"exp":       time.Now().Add(24 * time.Hour).Unix(),
+		"exp":       time.Now().Add(time.Duration(h.Cfg.JWTExpiryHours) * time.Hour).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(h.Cfg.JWTSecret))

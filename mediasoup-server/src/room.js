@@ -1,14 +1,14 @@
 import { config } from './config.js';
 
 export class RoomManager {
-  constructor(worker) {
-    this.worker = worker;
+  constructor(getWorker) {
+    this.getWorker = getWorker;
     this.rooms = new Map();
   }
 
   getOrCreate(roomId) {
     if (!this.rooms.has(roomId)) {
-      this.rooms.set(roomId, new Room(roomId, this.worker));
+      this.rooms.set(roomId, new Room(roomId, this.getWorker()));
     }
     return this.rooms.get(roomId);
   }
@@ -159,7 +159,6 @@ class Room {
 
     this.send(peer.userId, { type: 'produced', id: producer.id });
 
-    // Notify other peers about the new producer
     this.broadcast({
       type: 'newProducer',
       producerId: producer.id,
@@ -194,7 +193,6 @@ class Room {
     const transport = peer.consumerTransport;
     if (!transport) throw new Error('no consumer transport');
 
-    // Find the producer from any peer in this room
     let producer = null;
     for (const [, p] of this.peers) {
       if (p.producers.has(msg.producerId)) {

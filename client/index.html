@@ -101,7 +101,9 @@ button.small { width: auto; padding: 6px 10px; font-size: 12px; }
 <script type="module">
 import { Device } from 'https://cdn.jsdelivr.net/npm/mediasoup-client@3.7.17/+esm';
 
-const SERVER = window.__TAURI__ ? 'http://dandelions.fun:8080' : '';
+// Tauri desktop app needs to reach the remote server; browser uses same origin.
+// Change this to your server URL if deploying elsewhere.
+const SERVER = window.__TAURI__ ? (localStorage.getItem('server_url') || 'https://dandelions.fun') : '';
 const API = SERVER + '/api';
 const $ = id => document.getElementById(id);
 let token = localStorage.getItem('token');

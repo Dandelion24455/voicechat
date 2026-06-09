@@ -1,23 +1,36 @@
 import mediasoup from 'mediasoup';
+import os from 'os';
 import { WebSocketServer } from 'ws';
 import jwt from 'jsonwebtoken';
 import { config } from './config.js';
 import { RoomManager } from './room.js';
 
 async function main() {
-  console.log('starting mediasoup worker...');
-  const worker = await mediasoup.createWorker({
-    rtcMinPort: config.mediasoup.worker.rtcMinPort,
-    rtcMaxPort: config.mediasoup.worker.rtcMaxPort,
-    logLevel: config.mediasoup.worker.logLevel,
-  });
-  worker.on('died', () => {
-    console.error('mediasoup worker died, exiting');
-    process.exit(1);
-  });
-  console.log(`worker ready (UDP ${config.mediasoup.worker.rtcMinPort}-${config.mediasoup.worker.rtcMaxPort})`);
+  const numWorkers = Math.min(os.cpus().length, config.maxWorkers || 4);
+  console.log(`creating ${numWorkers} mediasoup workers...`);
 
-  const roomManager = new RoomManager(worker);
+  const workers = [];
+  for (let i = 0; i < numWorkers; i++) {
+    const worker = await mediasoup.createWorker({
+      rtcMinPort: config.mediasoup.worker.rtcMinPort,
+      rtcMaxPort: config.mediasoup.worker.rtcMaxPort,
+      logLevel: config.mediasoup.worker.logLevel,
+    });
+    worker.on('died', () => {
+      console.error(`mediasoup worker ${i} died, exiting`);
+      process.exit(1);
+    });
+    workers.push(worker);
+    console.log(`worker ${i} ready`);
+  }
+  console.log(`all ${numWorkers} workers ready (UDP ${config.mediasoup.worker.rtcMinPort}-${config.mediasoup.worker.rtcMaxPort})`);
+
+  let rrIndex = 0;
+  function getWorker() {
+    return workers[rrIndex++ % workers.length];
+  }
+
+  const roomManager = new RoomManager(getWorker);
 
   const wss = new WebSocketServer({
     port: config.port,
@@ -85,8 +98,8 @@ async function main() {
 
   console.log(`mediasoup signaling server on :${config.port}`);
 
-  process.on('SIGTERM', () => { wss.close(); worker.close(); process.exit(0); });
-  process.on('SIGINT', () => { wss.close(); worker.close(); process.exit(0); });
+  process.on('SIGTERM', () => { wss.close(); workers.forEach(w => w.close()); process.exit(0); });
+  process.on('SIGINT', () => { wss.close(); workers.forEach(w => w.close()); process.exit(0); });
 }
 
 main().catch(err => {

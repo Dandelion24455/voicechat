@@ -32,6 +32,7 @@ services:
       PORT: "3000"
       JWT_SECRET: ${JWT_SECRET}
       ANNOUNCED_IP: ${ANNOUNCED_IP:-212.64.28.112}
+      MAX_WORKERS: ${MAX_WORKERS:-4}
       RTC_MIN_PORT: "40000"
       RTC_MAX_PORT: "49999"
     depends_on:
@@ -56,6 +57,8 @@ services:
       DB_NAME: voicechat
       REDIS_ADDR: 127.0.0.1:6379
       JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-1}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       MEDIASOUP_WS_HOST: ${MEDIASOUP_WS_HOST:-127.0.0.1}
       MEDIASOUP_WS_PORT: "3000"
     depends_on:

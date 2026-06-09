@@ -6,11 +6,15 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
 )
+
+const memberTTL = 3 * time.Minute
+const refreshInterval = 1 * time.Minute
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
@@ -26,12 +30,12 @@ type Client struct {
 }
 
 type Message struct {
-	Type     string `json:"type"`
-	UserID   string `json:"user_id,omitempty"`
-	PlayerID string `json:"player_id,omitempty"`
-	Username string `json:"username,omitempty"`
-	RoomID   string `json:"room_id,omitempty"`
-	Speaking bool   `json:"speaking,omitempty"`
+	Type     string   `json:"type"`
+	UserID   string   `json:"user_id,omitempty"`
+	PlayerID string   `json:"player_id,omitempty"`
+	Username string   `json:"username,omitempty"`
+	RoomID   string   `json:"room_id,omitempty"`
+	Speaking bool     `json:"speaking,omitempty"`
 	Members  []Member `json:"members,omitempty"`
 }
 
@@ -80,6 +84,22 @@ func (hub *Hub) Handle(c *gin.Context) {
 	hub.addMember(roomID, userID, playerID, username)
 	hub.broadcastMembers(roomID)
 
+	// Periodic TTL refresh — keeps Redis keys alive while connected
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		ticker := time.NewTicker(refreshInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				hub.refreshMember(roomID, userID)
+			case <-done:
+				return
+			}
+		}
+	}()
+
 	defer func() {
 		hub.removeMember(roomID, userID)
 		hub.broadcastMembers(roomID)
@@ -87,6 +107,29 @@ func (hub *Hub) Handle(c *gin.Context) {
 		delete(hub.clients, client)
 		hub.mu.Unlock()
 		conn.Close()
+	}()
+
+	// Read deadline ensures ReadJSON won't block forever on a dead connection
+	conn.SetReadDeadline(time.Now().Add(2 * time.Minute))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(2 * time.Minute))
+		return nil
+	})
+
+	// Ping every 30s to keep the connection alive and detect dead peers
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				client.mu.Lock()
+				conn.WriteMessage(websocket.PingMessage, nil)
+				client.mu.Unlock()
+			case <-done:
+				return
+			}
+		}
 	}()
 
 	for {
@@ -103,12 +146,22 @@ func (hub *Hub) Handle(c *gin.Context) {
 
 func (hub *Hub) addMember(roomID, userID, playerID, username string) {
 	ctx := context.Background()
-	hub.rdb.SAdd(ctx, "room:"+roomID+":members", userID)
-	hub.rdb.HSet(ctx, "user:"+userID, map[string]interface{}{
+	membersKey := "room:" + roomID + ":members"
+	userKey := "user:" + userID
+	hub.rdb.SAdd(ctx, membersKey, userID)
+	hub.rdb.Expire(ctx, membersKey, memberTTL)
+	hub.rdb.HSet(ctx, userKey, map[string]interface{}{
 		"player_id": playerID,
 		"username":  username,
 		"room_id":   roomID,
 	})
+	hub.rdb.Expire(ctx, userKey, memberTTL)
+}
+
+func (hub *Hub) refreshMember(roomID, userID string) {
+	ctx := context.Background()
+	hub.rdb.Expire(ctx, "room:"+roomID+":members", memberTTL)
+	hub.rdb.Expire(ctx, "user:"+userID, memberTTL)
 }
 
 func (hub *Hub) removeMember(roomID, userID string) {

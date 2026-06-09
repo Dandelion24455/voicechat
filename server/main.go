@@ -30,14 +30,14 @@ func main() {
 
 	rdb := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
 
-	authH := &handler.AuthHandler{DB: db, Cfg: cfg}
+	authH := &handler.AuthHandler{DB: db, Cfg: cfg, Rdb: rdb}
 	roomH := &handler.RoomHandler{DB: db, Cfg: cfg}
 	msH := &handler.MediasoupHandler{Cfg: cfg}
 
 	hub := ws.NewHub(rdb)
 
 	r := gin.Default()
-	r.Use(middleware.CORS())
+	r.Use(middleware.CORS(cfg.AllowedOrigins))
 	r.StaticFile("/", "/client/index.html")
 
 	api := r.Group("/api")
@@ -45,8 +45,9 @@ func main() {
 		api.POST("/register", authH.Register)
 		api.POST("/login", authH.Login)
 
-		auth := api.Group("", middleware.Auth(cfg.JWTSecret))
+		auth := api.Group("", middleware.Auth(cfg.JWTSecret, rdb))
 		{
+			auth.POST("/logout", authH.Logout)
 			auth.POST("/rooms", roomH.Create)
 			auth.GET("/rooms", roomH.List)
 			auth.DELETE("/rooms/:id", roomH.Delete)

@@ -2,6 +2,7 @@ export const config = {
   port: parseInt(process.env.PORT || '3000', 10),
   jwtSecret: process.env.JWT_SECRET || 'jwt-secret-change-me',
   announcedIp: process.env.ANNOUNCED_IP || '127.0.0.1',
+  maxWorkers: parseInt(process.env.MAX_WORKERS || '4', 10),
 
   mediasoup: {
     worker: {
