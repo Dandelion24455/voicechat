@@ -127,8 +127,10 @@ class Room {
   }
 
   async onCreateProducerTransport(peer) {
+    console.log(`[room ${this.id}] creating producer transport for ${peer.username}`);
     const transport = await this.router.createWebRtcTransport(config.mediasoup.webRtcTransport);
     peer.producerTransport = transport;
+    console.log(`[room ${this.id}] producer transport created: ${transport.id}`);
 
     transport.observer.on('close', () => { peer.producerTransport = null; });
 
@@ -144,7 +146,9 @@ class Room {
   async onConnectProducerTransport(peer, msg) {
     const transport = peer.producerTransport;
     if (!transport) throw new Error('no producer transport');
+    console.log(`[room ${this.id}] connecting producer transport for ${peer.username} (ICE: ${transport.iceTransport ? 'trying' : 'pending'})`);
     await transport.connect({ dtlsParameters: msg.dtlsParameters });
+    console.log(`[room ${this.id}] producer transport connected for ${peer.username}`);
     this.send(peer.userId, { type: 'connectProducerTransportAck' });
   }
 
