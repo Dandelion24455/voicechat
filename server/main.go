@@ -39,7 +39,7 @@ func main() {
 	r := gin.Default()
 	r.Use(middleware.CORS(cfg.AllowedOrigins))
 	r.StaticFile("/", "/client/index.html")
-	r.StaticFile("/mediasoup-client.bundle.js", "/client/mediasoup-client.bundle.js")
+	r.StaticFile("/mediasoup-client.iife.js", "/client/mediasoup-client.iife.js")
 
 	api := r.Group("/api")
 	{

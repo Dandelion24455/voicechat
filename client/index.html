@@ -98,8 +98,10 @@ button.small { width: auto; padding: 6px 10px; font-size: 12px; }
   <div id="error-log"></div>
 </div>
 
+<script src="/mediasoup-client.iife.js"></script>
 <script type="module">
-import { Device } from './mediasoup-client.bundle.js';
+const { Device } = window.__mediasoupClient;
+delete window.__mediasoupClient;
 
 // Tauri desktop app needs to reach the remote server; browser uses same origin.
 // Change this to your server URL if deploying elsewhere.
