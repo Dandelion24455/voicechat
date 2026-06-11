@@ -116,6 +116,7 @@ let producerTransport = null;
 let consumerTransport = null;
 let audioProducerId = null;
 let micTrack = null;
+let micStream = null;
 let micMuted = false;
 let remoteConsumers = new Map();
 let msWs = null;
@@ -268,11 +269,33 @@ async function joinByCode() {
 async function joinRoom(id) {
   clearLog();
   currentRoomID = id;
+
+  // Get microphone first while we still have user gesture context.
+  // getUserMedia called inside WebSocket callbacks loses activation.
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        sampleRate: 48000, channelCount: 1,
+        echoCancellation: false, noiseSuppression: false,
+        autoGainControl: false, latency: 0.01
+      }
+    });
+    micTrack = micStream.getAudioTracks()[0];
+    log('Mic ready');
+  } catch(e) {
+    log('Mic denied or unavailable: ' + e.message);
+    log('Joining as listener-only');
+    micTrack = null;
+    micStream = null;
+  }
+
   try {
     const res = await authFetch(API + '/rooms/' + id + '/token');
     const info = await res.json();
     if (!res.ok) { log('connection info error: ' + info.error); return; }
     log('Got connection info, connecting mediasoup...');
+
+    hide($('lobby-card')); show($('room-info'));
     await connectMediasoup(info);
     log('Media connected!');
 
@@ -285,8 +308,6 @@ async function joinRoom(id) {
       const msg = JSON.parse(e.data);
       if (msg.type === 'members') renderMembers(msg.members);
     };
-
-    hide($('lobby-card')); show($('room-info'));
   } catch(e) { log('joinRoom: ' + e.message); }
 }
 
@@ -446,24 +467,22 @@ function setupTransportHandlers(transport, label) {
 }
 
 async function startProducing() {
+  if (!micTrack) {
+    log('No microphone available — skipping producer');
+    msSend({ type: 'createConsumerTransport' });
+    return;
+  }
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        sampleRate: 48000, channelCount: 1,
-        echoCancellation: false, noiseSuppression: false,
-        autoGainControl: false, latency: 0.01
-      }
-    });
-    micTrack = stream.getAudioTracks()[0];
     await producerTransport.produce({
       track: micTrack,
       codecOptions: { opusStereo: false, opusDtx: false, opusFec: true, opusMaxPlaybackRate: 48000 },
     });
   } catch(e) {
     log('Microphone error: ' + e.message);
-    log('Hint: use localhost:8080 or the desktop client for mic access (HTTPS required)');
     $('status-dot').className = 'status-dot disconnected';
-    throw e;
+    // Still try to create consumer transport so we can listen
+    msSend({ type: 'createConsumerTransport' });
+    return;
   }
 }
 
@@ -549,6 +568,7 @@ function cleanupMedia() {
   producerTransport?.close(); producerTransport = null;
   consumerTransport?.close(); consumerTransport = null;
   audioProducerId = null;
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
   micTrack = null;
   device = null;
   pendingConsume = null;
