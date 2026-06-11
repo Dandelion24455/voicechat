@@ -13,6 +13,6 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates tzdata
 RUN mkdir -p /data/certs
 COPY --from=builder /voicechat-server /voicechat-server
-COPY client/index.html /client/index.html
+COPY client/ /client/
 EXPOSE 80 443 8080
 CMD ["/voicechat-server"]

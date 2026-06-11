@@ -39,6 +39,7 @@ func main() {
 	r := gin.Default()
 	r.Use(middleware.CORS(cfg.AllowedOrigins))
 	r.StaticFile("/", "/client/index.html")
+	r.StaticFile("/mediasoup-client.esm.js", "/client/mediasoup-client.esm.js")
 
 	api := r.Group("/api")
 	{
