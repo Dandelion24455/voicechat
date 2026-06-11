@@ -377,15 +377,22 @@ async function handleMsMsg(msg, resolve, timeout) {
         iceCandidates: msg.iceCandidates, dtlsParameters: msg.dtlsParameters,
       });
       setupTransportHandlers(producerTransport, 'producer');
+      log('Send transport created, starting produce...');
+      await startProducing();
       break;
 
     case 'connectProducerTransportAck':
-      await startProducing();
+      // Transport connect ack handled by setupTransportHandlers; no-op here.
       break;
 
     case 'produced':
       audioProducerId = msg.id;
       log('Audio published. Producer: ' + msg.id);
+      // Producer is ready — resolve the join promise.
+      $('status-dot').className = 'status-dot connected';
+      reconnectDelay = 1000; reconnectCount = 0;
+      clearTimeout(timeout);
+      resolve();
       // Now create consumer transport for receiving
       msSend({ type: 'createConsumerTransport' });
       break;
@@ -396,15 +403,23 @@ async function handleMsMsg(msg, resolve, timeout) {
         iceCandidates: msg.iceCandidates, dtlsParameters: msg.dtlsParameters,
       });
       setupTransportHandlers(consumerTransport, 'consumer');
-      break;
-
-    case 'connectConsumerTransportAck':
-      // Consumer transport ready; resolve if we were pending
+      log('Recv transport created');
       if (pendingConsume) {
         const pc = pendingConsume; pendingConsume = null;
         msSend({ type: 'consume', transportId: consumerTransport.id, producerId: pc.producerId, rtpCapabilities: device.rtpCapabilities });
       }
-      // Resolve the initial connection promise
+      // If we're listener-only (no mic), we won't get 'produced'.
+      // Resolve now so the room UI stays alive.
+      if (!micTrack) {
+        $('status-dot').className = 'status-dot connected';
+        reconnectDelay = 1000; reconnectCount = 0;
+        clearTimeout(timeout);
+        resolve();
+      }
+      break;
+
+    case 'connectConsumerTransportAck':
+      // Transport connect handled by setupTransportHandlers; just resolve.
       $('status-dot').className = 'status-dot connected';
       reconnectDelay = 1000; reconnectCount = 0;
       clearTimeout(timeout);
