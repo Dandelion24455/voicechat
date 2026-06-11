@@ -437,12 +437,14 @@ function setupTransportHandlers(transport, label) {
       dtlsParameters,
     });
     // call callback after server responds (ack)
+    const ackType = 'connect' + (label === 'producer' ? 'Producer' : 'Consumer') + 'TransportAck';
     const origHandler = msWs.onmessage;
     msWs.onmessage = async (e) => {
       const msg = JSON.parse(e.data);
-      if (msg.type === 'connect' + (label === 'producer' ? 'Producer' : 'Consumer') + 'TransportAck') {
+      if (msg.type === ackType) {
         callback();
         msWs.onmessage = origHandler;
+        if (origHandler) origHandler(e);
       } else if (origHandler) {
         origHandler(e);
       }
@@ -459,6 +461,7 @@ function setupTransportHandlers(transport, label) {
         audioProducerId = msg.id;
         callback({ id: msg.id });
         msWs.onmessage = origHandler;
+        if (origHandler) origHandler(e);
       } else if (origHandler) {
         origHandler(e);
       }
