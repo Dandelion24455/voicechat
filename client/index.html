@@ -382,18 +382,23 @@ async function handleMsMsg(msg, resolve, timeout) {
       break;
 
     case 'connectProducerTransportAck':
-      // Transport connect ack handled by setupTransportHandlers; no-op here.
+      if (pendingConnectCallback) {
+        pendingConnectCallback();
+        pendingConnectCallback = null;
+      }
       break;
 
     case 'produced':
       audioProducerId = msg.id;
       log('Audio published. Producer: ' + msg.id);
-      // Producer is ready — resolve the join promise.
+      if (pendingProduceCallback) {
+        pendingProduceCallback({ id: msg.id });
+        pendingProduceCallback = null;
+      }
       $('status-dot').className = 'status-dot connected';
       reconnectDelay = 1000; reconnectCount = 0;
       clearTimeout(timeout);
       resolve();
-      // Now create consumer transport for receiving
       msSend({ type: 'createConsumerTransport' });
       break;
 
@@ -419,11 +424,10 @@ async function handleMsMsg(msg, resolve, timeout) {
       break;
 
     case 'connectConsumerTransportAck':
-      // Transport connect handled by setupTransportHandlers; just resolve.
-      $('status-dot').className = 'status-dot connected';
-      reconnectDelay = 1000; reconnectCount = 0;
-      clearTimeout(timeout);
-      resolve();
+      if (pendingConnectCallback) {
+        pendingConnectCallback();
+        pendingConnectCallback = null;
+      }
       break;
 
     case 'consumed':
@@ -444,43 +448,25 @@ async function handleMsMsg(msg, resolve, timeout) {
   }
 }
 
+// Callbacks that handleMsMsg dispatches to — no more onmessage overrides.
+let pendingConnectCallback = null;
+let pendingProduceCallback = null;
+
 function setupTransportHandlers(transport, label) {
   transport.on('connect', ({ dtlsParameters }, callback, errback) => {
+    log('Transport connect event fired for ' + label);
+    pendingConnectCallback = callback;
     msSend({
       type: 'connect' + (label === 'producer' ? 'Producer' : 'Consumer') + 'Transport',
       transportId: transport.id,
       dtlsParameters,
     });
-    // call callback after server responds (ack)
-    const ackType = 'connect' + (label === 'producer' ? 'Producer' : 'Consumer') + 'TransportAck';
-    const origHandler = msWs.onmessage;
-    msWs.onmessage = async (e) => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === ackType) {
-        callback();
-        msWs.onmessage = origHandler;
-        if (origHandler) origHandler(e);
-      } else if (origHandler) {
-        origHandler(e);
-      }
-    };
   });
 
   transport.on('produce', ({ kind, rtpParameters }, callback, errback) => {
+    log('Transport produce event fired');
+    pendingProduceCallback = callback;
     msSend({ type: 'produce', transportId: transport.id, kind, rtpParameters });
-    // Wait for produced response
-    const origHandler = msWs.onmessage;
-    msWs.onmessage = async (e) => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === 'produced') {
-        audioProducerId = msg.id;
-        callback({ id: msg.id });
-        msWs.onmessage = origHandler;
-        if (origHandler) origHandler(e);
-      } else if (origHandler) {
-        origHandler(e);
-      }
-    };
   });
 }
 
@@ -545,6 +531,8 @@ function removeRemoteConsumer(producerId) {
 function msSend(msg) {
   if (msWs && msWs.readyState === WebSocket.OPEN) {
     msWs.send(JSON.stringify(msg));
+  } else {
+    log('msSend dropped (ws=' + (msWs ? msWs.readyState : 'null') + '): ' + msg.type);
   }
 }
 
@@ -590,6 +578,8 @@ function cleanupMedia() {
   micTrack = null;
   device = null;
   pendingConsume = null;
+  pendingConnectCallback = null;
+  pendingProduceCallback = null;
   remoteConsumers.forEach(c => { try { c.close(); } catch(e) {} });
   remoteConsumers.clear();
   document.querySelectorAll('audio[id^="audio-"]').forEach(el => el.remove());
