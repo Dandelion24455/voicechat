@@ -120,6 +120,7 @@ let micStream = null;
 let micMuted = false;
 let remoteConsumers = new Map();
 let msWs = null;
+let keepaliveTimer = null;
 let pendingConsumes = [];
 
 // --- reconnection ---
@@ -331,6 +332,10 @@ function connectMediasoup(info) {
     msWs.onopen = () => {
       log('MS WS open');
       $('status-dot').className = 'status-dot connecting';
+      // Keepalive ping to prevent proxy idle timeout
+      keepaliveTimer = setInterval(() => {
+        if (msWs && msWs.readyState === WebSocket.OPEN) msSend({ type: 'ping' });
+      }, 30000);
     };
 
     msWs.onmessage = async (e) => {
@@ -569,6 +574,7 @@ function onMsDisconnected() {
 
 function cleanupMedia() {
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (keepaliveTimer) { clearInterval(keepaliveTimer); keepaliveTimer = null; }
   if (msWs) { try { msWs.close(); } catch(e) {} msWs = null; }
   if (audioProducerId && producerTransport) {
     // Closing transport cleans up the producer

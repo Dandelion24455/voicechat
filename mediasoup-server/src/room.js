@@ -132,6 +132,9 @@ class Room {
         case 'resume':
           await this.onResume(peer, msg);
           break;
+        case 'ping':
+          this.send(userId, { type: 'pong' });
+          break;
         default:
           this.send(userId, { type: 'error', message: 'unknown message type: ' + msg.type });
       }
