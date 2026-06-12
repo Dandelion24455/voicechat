@@ -433,7 +433,7 @@ async function handleMsMsg(msg, resolve, timeout) {
       break;
 
     case 'consumed':
-      onConsumed(msg);
+      await onConsumed(msg);
       break;
 
     case 'newProducer':
@@ -505,8 +505,8 @@ async function consumeRemoteProducer(msg) {
   });
 }
 
-function onConsumed(msg) {
-  const consumer = consumerTransport.consume({
+async function onConsumed(msg) {
+  const consumer = await consumerTransport.consume({
     id: msg.id, producerId: msg.producerId, kind: msg.kind, rtpParameters: msg.rtpParameters,
   });
   remoteConsumers.set(msg.producerId, consumer);
