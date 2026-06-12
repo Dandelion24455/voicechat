@@ -82,6 +82,21 @@ class Room {
     }
   }
 
+  sendExistingProducers(userId) {
+    for (const [uid, peer] of this.peers) {
+      if (uid === userId) continue;
+      for (const [producerId] of peer.producers) {
+        const msg = {
+          type: 'newProducer',
+          producerId,
+          userId: uid,
+          username: peer.username,
+        };
+        this.send(userId, msg);
+      }
+    }
+  }
+
   broadcast(msg, excludeUserId) {
     for (const [uid, peer] of this.peers) {
       if (uid !== excludeUserId && peer.ws.readyState === 1) {

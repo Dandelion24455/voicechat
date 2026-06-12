@@ -12,7 +12,7 @@ import (
 
 const (
 	msProxyDialTimeout   = 5 * time.Second
-	msProxyIdleTimeout   = 30 * time.Second
+	msProxyIdleTimeout   = 120 * time.Second
 	msProxyMaxLifetime   = 15 * time.Minute
 )
 

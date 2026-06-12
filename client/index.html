@@ -120,7 +120,7 @@ let micStream = null;
 let micMuted = false;
 let remoteConsumers = new Map();
 let msWs = null;
-let pendingConsume = null;
+let pendingConsumes = [];
 
 // --- reconnection ---
 let reconnectTimer = null;
@@ -409,9 +409,11 @@ async function handleMsMsg(msg, resolve, timeout) {
       });
       setupTransportHandlers(consumerTransport, 'consumer');
       log('Recv transport created');
-      if (pendingConsume) {
-        const pc = pendingConsume; pendingConsume = null;
-        msSend({ type: 'consume', transportId: consumerTransport.id, producerId: pc.producerId, rtpCapabilities: device.rtpCapabilities });
+      if (pendingConsumes.length > 0) {
+        for (const pc of pendingConsumes) {
+          msSend({ type: 'consume', transportId: consumerTransport.id, producerId: pc.producerId, rtpCapabilities: device.rtpCapabilities });
+        }
+        pendingConsumes = [];
       }
       // If we're listener-only (no mic), we won't get 'produced'.
       // Resolve now so the room UI stays alive.
@@ -492,7 +494,7 @@ async function startProducing() {
 
 async function consumeRemoteProducer(msg) {
   if (!consumerTransport) {
-    pendingConsume = msg;
+    pendingConsumes.push(msg);
     return;
   }
   msSend({
@@ -574,10 +576,8 @@ function cleanupMedia() {
   producerTransport?.close(); producerTransport = null;
   consumerTransport?.close(); consumerTransport = null;
   audioProducerId = null;
-  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-  micTrack = null;
   device = null;
-  pendingConsume = null;
+  pendingConsumes = [];
   pendingConnectCallback = null;
   pendingProduceCallback = null;
   remoteConsumers.forEach(c => { try { c.close(); } catch(e) {} });
@@ -596,6 +596,7 @@ function toggleMic() {
 function leaveRoom() {
   reconnectDelay = 1000; reconnectCount = 0;
   currentRoomID = null;
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; micTrack = null; }
   cleanupMedia();
   hide($('room-info'));
   show($('lobby-card'));

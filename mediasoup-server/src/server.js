@@ -73,6 +73,8 @@ async function main() {
       type: 'routerRtpCapabilities',
       routerRtpCapabilities: room.router.rtpCapabilities,
     }));
+    // Notify new peer about existing producers in the room.
+    room.sendExistingProducers(userId);
 
     ws.on('message', (data) => {
       let msg;
